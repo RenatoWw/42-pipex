@@ -6,7 +6,7 @@
 /*   By: ranhaia- <ranhaia-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/07/18 16:25:49 by ranhaia-          #+#    #+#             */
-/*   Updated: 2025/07/24 17:53:19 by ranhaia-         ###   ########.fr       */
+/*   Updated: 2025/10/23 17:32:04 by ranhaia-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -44,6 +44,7 @@ char	*ft_strtrim(char const *s1, char const *set)
 	newstr = ft_calloc(len + 1, sizeof(char));
 	if (newstr == NULL)
 		return (NULL);
+	free(s1);
 	return (ft_memcpy(newstr, s1, len));
 }
 

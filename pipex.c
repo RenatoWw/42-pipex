@@ -6,56 +6,47 @@
 /*   By: ranhaia- <ranhaia-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/13 17:50:06 by ranhaia-          #+#    #+#             */
-/*   Updated: 2025/10/15 18:16:17 by ranhaia-         ###   ########.fr       */
+/*   Updated: 2025/10/23 21:01:15 by ranhaia-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "pipex.h"
 
-char	*concat_cmd(char *path, char *cmd)
+void	free_split(char **line)
 {
-	char	*command;
-	int		i;
-	int		j;
-	int		lencmd;
-	int		lenpath;
+	int	i;
 
-	lencmd = ft_strlen(cmd);
-	lenpath = ft_strlen(path);
-	command = ft_calloc(lenpath + lencmd + 2, sizeof(char));
 	i = 0;
-	j = 0;
-	while (i < lenpath)
-	{
-		command[i] = path[i];
-		i++;
-	}
-	command[i++] = '/';
-	while (i < lenpath + lencmd + 1 && cmd[j] != ' ')
-		command[i++] = cmd[j++];
-	return (command);
+	while (line[i] != NULL)
+		free(line[i++]);
+	free(line);
 }
 
 char	*find_path(char *command, char *envp)
 {
 	int		i;
 	char	**paths;
+	char	**splitted_command;
 	char	*pathname;
+	char	*temp;
 
-	i = 0;
 	paths = ft_split(envp, ':');
-	paths[i] = ft_strtrim(paths[i], "PATH=");
-	while (command[i] != ' ')
-		i++;
-	command[i] = '\0';
+	temp = ft_strtrim(paths[0], "PATH=");
+	free(paths[0]);
+	paths[0] = temp;
+	splitted_command = ft_split(command, ' ');
 	i = 0;
 	while (paths[i])
 	{
-		pathname = concat_cmd(paths[i], command);
+		temp = ft_strjoin(paths[i++], "/");
+		pathname = ft_strjoin(temp, splitted_command[0]);
+		free(temp);
 		if (access(pathname, X_OK) == 0)
 			break ;
-		i++;
+		free(pathname);
 	}
+	free_split(paths);
+	free_split(splitted_command);
 	return (pathname);
 }
 
@@ -66,52 +57,64 @@ int	main(int argc, char *argv[], char *envp[])
 	int		pid2;
 	int		fdinfile;
 	int		outfile;
-	int		fd[2];
+	char	**cmd_args;
+	int		pipefd[2];
 	int		i;
 
-	i = 0;
-	while (envp[i])
-	{
-			if (ft_strncmp(envp[i], "PATH=", 5) == 0)
-				break ;
-			i++;
-	}
-	path = find_path(argv[2], envp[i]);
-	// printf("path: %s\n", find_path(argv[2], envp[i]));
 	if (argc != 5)
 		return (1);
-	if (pipe(fd) == -1)
+	if (pipe(pipefd) == -1)
 		return (1);
+	fdinfile = open(argv[1], O_RDONLY);
+	if (fdinfile < 0)
+		return (1);
+	outfile = open(argv[4], O_WRONLY | O_TRUNC | O_CREAT, 0777);
+	if (outfile < 0)
+		return (1);
+	i = -1;
+	while (envp[++i])
+			if (ft_strncmp(envp[i], "PATH=", 5) == 0)
+				break ;
+	path = find_path(argv[2], envp[i]);
+	if (access(path, X_OK) != 0)
+	{
+		printf("Command not found\n");
+		return (1);
+	}
 	pid1 = fork();
 	if (pid1 == 0)
 	{
-		fdinfile = open(argv[1], O_RDONLY);
-		if (fdinfile == -1)
-			return (1);
 		dup2(fdinfile, 0);
-		dup2(fd[1], 1);
-		close(fd[0]);
-		close(fd[1]);
-		close(fdinfile);
-		execve(path, argv, envp);
+		dup2(pipefd[1], 1);
+		close(pipefd[0]);
+		close(pipefd[1]);
+		cmd_args = ft_split(argv[2], ' ');
+		if (execve(path, cmd_args, envp) == -1)
+			free_split(cmd_args);
 	}
 	pid2 = fork();
 	if (pid2 == 0)
 	{
-		dup2(fd[0], 0);
-		outfile = open(argv[4], O_WRONLY | O_TRUNC | O_CREAT, 0777);
-		if (outfile == -1)
-			return (1);
+		dup2(pipefd[0], 0);
 		dup2(outfile, 1);
-		close(fd[1]);
-		close(fd[0]);
-		close(outfile);
-		execve(path, argv, envp);
+		close(pipefd[0]);
+		close(pipefd[1]);
+		path = find_path(argv[3], envp[i]);
+		if (access(path, X_OK) != 0)
+		{
+			printf("Command not found\n");
+			return (1);
+		}
+		cmd_args = ft_split(argv[3], ' ');
+		if (execve(path, cmd_args, envp) == -1)
+			free_split(cmd_args);
 	}
+	close(fdinfile);
+	close(outfile);
+	close(pipefd[0]);
+	close(pipefd[1]);
 	waitpid(pid1, NULL, 0);
 	waitpid(pid2, NULL, 0);
-	close(fd[0]);
-	close(fd[1]);
 	printf("Success\n");
 	return (0);
 }
