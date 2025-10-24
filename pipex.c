@@ -6,7 +6,7 @@
 /*   By: ranhaia- <ranhaia-@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/13 17:50:06 by ranhaia-          #+#    #+#             */
-/*   Updated: 2025/10/23 21:01:15 by ranhaia-         ###   ########.fr       */
+/*   Updated: 2025/10/23 21:36:37 by ranhaia-         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -67,20 +67,14 @@ int	main(int argc, char *argv[], char *envp[])
 		return (1);
 	fdinfile = open(argv[1], O_RDONLY);
 	if (fdinfile < 0)
-		return (1);
+		exit(1);
 	outfile = open(argv[4], O_WRONLY | O_TRUNC | O_CREAT, 0777);
 	if (outfile < 0)
-		return (1);
+		exit(1);
 	i = -1;
 	while (envp[++i])
-			if (ft_strncmp(envp[i], "PATH=", 5) == 0)
-				break ;
-	path = find_path(argv[2], envp[i]);
-	if (access(path, X_OK) != 0)
-	{
-		printf("Command not found\n");
-		return (1);
-	}
+		if (ft_strncmp(envp[i], "PATH=", 5) == 0)
+			break ;
 	pid1 = fork();
 	if (pid1 == 0)
 	{
@@ -88,6 +82,12 @@ int	main(int argc, char *argv[], char *envp[])
 		dup2(pipefd[1], 1);
 		close(pipefd[0]);
 		close(pipefd[1]);
+		if (argv[2][0] == '/')
+			path = argv[2];
+		else
+			path = find_path(argv[2], envp[i]);
+		if (access(path, X_OK) != 0)
+			exit(127);
 		cmd_args = ft_split(argv[2], ' ');
 		if (execve(path, cmd_args, envp) == -1)
 			free_split(cmd_args);
@@ -99,12 +99,12 @@ int	main(int argc, char *argv[], char *envp[])
 		dup2(outfile, 1);
 		close(pipefd[0]);
 		close(pipefd[1]);
-		path = find_path(argv[3], envp[i]);
+		if (argv[2][0] == '/')
+			path = argv[2];
+		else
+			path = find_path(argv[3], envp[i]);
 		if (access(path, X_OK) != 0)
-		{
-			printf("Command not found\n");
-			return (1);
-		}
+			exit(127);
 		cmd_args = ft_split(argv[3], ' ');
 		if (execve(path, cmd_args, envp) == -1)
 			free_split(cmd_args);
